@@ -969,10 +969,23 @@ async function copyCard() {
   }
 }
 
+// A card is saved the first time it's drawn, so later changes to the
+// error groups or mix only affect cards drawn after the change.
+const cardKey = (name, draw) => `vetslo:card:${name.trim().toLowerCase()}:${draw}`;
+function loadOrBuildCard(name, draw) {
+  try {
+    const saved = JSON.parse(store.get(cardKey(name, draw)) || "null");
+    if (saved && Array.isArray(saved.cells) && saved.cells.length === 25 && saved.id) return saved;
+  } catch {}
+  const card = buildCard(name, draw);
+  store.set(cardKey(name, draw), JSON.stringify(card));
+  return card;
+}
+
 function start(name) {
   state.name = name.trim();
   state.draw = drawNumber(state.name);
-  state.card = buildCard(state.name, state.draw);
+  state.card = loadOrBuildCard(state.name, state.draw);
   let marks = [];
   try { marks = JSON.parse(store.get(marksKey()) || "[]"); } catch {}
   state.marks = Array.from({ length: 25 }, (_, i) => i === 12 ? true : !!marks[i]);
