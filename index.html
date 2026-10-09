@@ -195,6 +195,11 @@
     }
   }
 
+  /* Yellow VETRO warning look (lines starting with ! in errors.txt) */
+  .errbox.warn { background: #FDF4D0; color: #806500; }
+  .errbox.warn .x { color: #7E7A68; }
+  .pick .ico { flex: none; }
+
   /* Free space sits in a matching pink box, no error icon */
   .errbox.freebox { padding: 0; justify-content: center; align-items: center; }
   .cell.free .errbox.freebox img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 4px 8px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); }
@@ -402,10 +407,11 @@
    SETTINGS — edit these
    ========================================================= */
 
-// The error list, sorted by how often VETRO throws them.
-// Move a line between groups to change how rare it is.
-// Long messages automatically get smaller text so they fit their square.
-const ERRORS = {
+// The error list now lives in errors.txt, next to this page.
+// Edit that file to add, remove or move errors; no need to touch this one.
+// The list below is only a backup, used if errors.txt can't be loaded.
+// Messages in WARNINGS show as yellow VETRO warnings instead of pink errors.
+let ERRORS = {
   common: [
     "Layers failed to load.",
     "Could not retrieve feature info.",
@@ -424,7 +430,8 @@ const ERRORS = {
     "Not enough memory to open this page",
     "This page isn't responding",
     "Performance issue detected — high CPU usage from background tabs",
-    "VETRO stuck indefinitely on its loading screen"
+    "VETRO stuck indefinitely on its loading screen",
+    "Error updating point assignments."
   ],
   uncommon: [
     "Selected feature in url does not exist or you don't have permission",
@@ -448,14 +455,56 @@ const ERRORS = {
     "Equipment Types cannot be updated",
     "An error has occurred loading BIP Programs. Please contact support if this problem persists.",
     "An error has occurred loading plan phases. Please contact support if this issue persists.",
-    "User is locked for 1 hour due to too many failed login attempts. You may unlock your account by resetting your password."
+    "User is locked for 1 hour due to too many failed login attempts. You may unlock your account by resetting your password.",
+    "The update may have finished, but confirmation was not received. The table has been refreshed."
   ]
 };
+let WARNINGS = new Set([
+  "The update may have finished, but confirmation was not received. The table has been refreshed."
+]);
+const ERRORS_FILE = "errors.txt";
 
 // How many of each group go on every card (must add up to 24).
 const MIX = { common: 14, uncommon: 7, rare: 3 };
 
-const SQUARES = [...ERRORS.common, ...ERRORS.uncommon, ...ERRORS.rare];
+let SQUARES = [...ERRORS.common, ...ERRORS.uncommon, ...ERRORS.rare];
+
+// errors.txt format: a [common], [uncommon] or [rare] heading, then one
+// message per line. Lines starting with # are notes. Start a line with !
+// to make it a yellow warning.
+function parseErrors(txt) {
+  const out = { common: [], uncommon: [], rare: [] }, warn = new Set();
+  let tier = null;
+  txt.replace(/^\uFEFF/, "").split(/\r?\n/).forEach(raw => {
+    let line = raw.trim();
+    if (!line || line.startsWith("#")) return;
+    const h = line.match(/^\[\s*(common|uncommon|rare)\s*\]$/i);
+    if (h) { tier = h[1].toLowerCase(); return; }
+    if (!tier) return;
+    let isWarn = false;
+    if (line.startsWith("!")) { isWarn = true; line = line.slice(1).trim(); }
+    if (!line || out[tier].includes(line)) return;
+    out[tier].push(line);
+    if (isWarn) warn.add(line);
+  });
+  const total = out.common.length + out.uncommon.length + out.rare.length;
+  return total >= 24 ? { errors: out, warnings: warn } : null;
+}
+async function loadErrorList() {
+  if (location.protocol === "file:") return;
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 4000);
+    const r = await fetch(`${ERRORS_FILE}?v=${Date.now()}`, { cache: "no-store", signal: ctl.signal });
+    clearTimeout(t);
+    if (!r.ok) return;
+    const parsed = parseErrors(await r.text());
+    if (!parsed) return;
+    ERRORS = parsed.errors;
+    // keep built-in warnings too, so saved cards keep their yellow look
+    WARNINGS = new Set([...WARNINGS, ...parsed.warnings]);
+    SQUARES = [...ERRORS.common, ...ERRORS.uncommon, ...ERRORS.rare];
+  } catch {}
+}
 
 // Free space images. Each player's card picks one at random, and it stays
 // with that card. Add as many as you like: a URL or a
@@ -569,6 +618,15 @@ const wonKey = () => `vetslo:won:${state.name.trim().toLowerCase()}:${state.draw
 
 const MARK_SVG = `<svg class="mark" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M58 10 C84 12 95 34 90 58 C85 84 56 94 32 87 C9 80 4 52 12 32 C19 15 38 6 64 13"/></svg>`;
 const ERROR_ICON = `<svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="#E5484D"/><path d="M6.6 6.6l6.8 6.8M13.4 6.6l-6.8 6.8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+const WARN_ICON = `<svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="#F6C200"/><path d="M10 4.8v6.4" stroke="#1F1A0A" stroke-width="2.4" stroke-linecap="round"/><circle cx="10" cy="14.9" r="1.4" fill="#1F1A0A"/></svg>`;
+const isWarn = msg => WARNINGS.has(msg);
+const iconFor = msg => isWarn(msg) ? WARN_ICON : ERROR_ICON;
+// Canvas colors for each look
+const LOOK = {
+  error: { bg: "#FBDEDE", text: "#772528", x: "#8A7B7B" },
+  warn:  { bg: "#FDF4D0", text: "#806500", x: "#7E7A68" }
+};
+const lookFor = msg => isWarn(msg) ? LOOK.warn : LOOK.error;
 const SPINNER_SVG = `<svg viewBox="0 0 50 50" aria-hidden="true"><circle cx="25" cy="25" r="19" fill="none" stroke="currentColor" stroke-width="5" stroke-dasharray="80 40" stroke-linecap="round"/></svg>`;
 
 function render() {
@@ -601,8 +659,8 @@ function render() {
         btn.setAttribute("aria-pressed", String(!!state.marks[i]));
         btn.title = `${coord}: ${text}`;
         const toastEl = document.createElement("span");
-        toastEl.className = "errbox";
-        toastEl.innerHTML = `<span class="x" aria-hidden="true">\u00d7</span>${ERROR_ICON}`;
+        toastEl.className = isWarn(text) ? "errbox warn" : "errbox";
+        toastEl.innerHTML = `<span class="x" aria-hidden="true">\u00d7</span>${iconFor(text)}`;
         const span = document.createElement("span");
         span.className = "txt";
         span.textContent = text;
@@ -670,6 +728,13 @@ async function loadFonts() {
     ].map(f => document.fonts.load(f)));
   } catch {}
 }
+function warnIcon(ctx, x, y, r) {
+  ctx.fillStyle = "#F6C200"; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#1F1A0A"; ctx.lineWidth = Math.max(1.5, r * .24); ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(x, y - r * .52); ctx.lineTo(x, y + r * .12); ctx.stroke();
+  ctx.fillStyle = "#1F1A0A"; ctx.beginPath(); ctx.arc(x, y + r * .49, Math.max(1, r * .14), 0, Math.PI * 2); ctx.fill();
+}
+function iconOn(ctx, msg, x, y, r) { (isWarn(msg) ? warnIcon : errorIcon)(ctx, x, y, r); }
 function errorIcon(ctx, x, y, r) {
   ctx.fillStyle = "#E5484D"; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   const k = r * .36;
@@ -699,16 +764,14 @@ async function makeCallout(message, cellIndex) {
   // pink error box
   const boxY = 92;
   ctx.save(); ctx.shadowColor = "rgba(0,0,0,.3)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
-  ctx.fillStyle = "#FBDEDE"; ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 6); ctx.fill(); ctx.restore();
+  const look = lookFor(message);
+  ctx.fillStyle = look.bg; ctx.beginPath(); ctx.roundRect(boxX, boxY, boxW, boxH, 6); ctx.fill(); ctx.restore();
   // icon
-  const icx = boxX + 46, icy = boxY + boxH / 2;
-  ctx.fillStyle = "#E5484D"; ctx.beginPath(); ctx.arc(icx, icy, 20, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "#fff"; ctx.lineWidth = 4; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(icx - 7, icy - 7); ctx.lineTo(icx + 7, icy + 7); ctx.moveTo(icx + 7, icy - 7); ctx.lineTo(icx - 7, icy + 7); ctx.stroke();
+  iconOn(ctx, message, boxX + 46, boxY + boxH / 2, 20);
   // close x
-  ctx.fillStyle = "#8A7B7B"; ctx.font = '400 30px "Lato", sans-serif'; ctx.fillText("\u00d7", boxX + boxW - 34, boxY + 34);
+  ctx.fillStyle = look.x; ctx.font = '400 30px "Lato", sans-serif'; ctx.fillText("\u00d7", boxX + boxW - 34, boxY + 34);
   // message
-  ctx.fillStyle = "#772528"; ctx.font = '700 30px "Lato", "Segoe UI", sans-serif'; ctx.textBaseline = "middle";
+  ctx.fillStyle = look.text; ctx.font = '700 30px "Lato", "Segoe UI", sans-serif'; ctx.textBaseline = "middle";
   const top = boxY + boxH / 2 - (lines.length - 1) * 19;
   lines.forEach((l, k) => ctx.fillText(l, textX, top + k * 38));
   ctx.textBaseline = "alphabetic";
@@ -839,13 +902,13 @@ async function makeBingo() {
   for (let i = 0; i < 25; i++) {
     const x = pad + (i % 5) * (cw + gap), y = top + Math.floor(i / 5) * (ch + gap);
     ctx.save(); ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1;
-    ctx.fillStyle = "#FBDEDE"; ctx.beginPath(); ctx.roundRect(x, y, cw, ch, 4); ctx.fill(); ctx.restore();
     const text = state.card.cells[i];
+    ctx.fillStyle = text ? lookFor(text).bg : "#FBDEDE"; ctx.beginPath(); ctx.roundRect(x, y, cw, ch, 4); ctx.fill(); ctx.restore();
     if (text === null) {
       if (artImg) { const h = ch - 8, w = h * artImg.naturalWidth / artImg.naturalHeight; ctx.drawImage(artImg, x + (cw - w) / 2, y + 4, w, h); }
     } else {
-      errorIcon(ctx, x + 16, y + ch / 2, 8);
-      ctx.fillStyle = "#772528"; ctx.font = '700 12.5px "Lato", "Segoe UI", sans-serif'; ctx.textBaseline = "middle";
+      iconOn(ctx, text, x + 16, y + ch / 2, 8);
+      ctx.fillStyle = lookFor(text).text; ctx.font = '700 12.5px "Lato", "Segoe UI", sans-serif'; ctx.textBaseline = "middle";
       const lines = fitText(ctx, text, cw - 38, 3);
       const ty = y + ch / 2 - (lines.length - 1) * 7.5;
       lines.forEach((l, k) => ctx.fillText(l, x + 30, ty + k * 15));
@@ -872,7 +935,7 @@ function openPicker() {
     SQUARES.forEach(msg => {
       const b = document.createElement("button");
       b.type = "button"; b.className = "pick";
-      b.innerHTML = ERROR_ICON;
+      b.innerHTML = iconFor(msg);
       b.appendChild(document.createTextNode(msg));
       b.addEventListener("click", () => {
         $("pickOverlay").hidden = true;
@@ -1001,7 +1064,8 @@ function showSetup() {
   $("nameInput").focus();
 }
 
-function drawCard() {
+async function drawCard() {
+  await listReady;
   const name = $("nameInput").value.trim();
   if (!name) { $("nameInput").focus(); toast("Type your name first."); return; }
   const code = $("codeInput").value.trim();
@@ -1079,8 +1143,12 @@ if (!storageWorks()) {
   $("diag").textContent = `For IT: browser storage is blocked here. Page origin: ${location.origin || "none"}. Inside a frame: ${framed}.`;
 }
 
-const saved = store.get("vetslo:name");
-if (saved) start(saved); else showSetup();
+const listReady = loadErrorList();
+(async () => {
+  await listReady;
+  const saved = store.get("vetslo:name");
+  if (saved) start(saved); else showSetup();
+})();
 </script>
 </body>
 </html>

@@ -1,0 +1,62 @@
+# VETSLO BINGO — ERROR LIST
+#
+# This is the master list the game pulls from. Edit it right on GitHub:
+# click the pencil icon, make your change, then click Commit changes.
+# The game picks up the change within a few minutes. No need to touch index.html.
+#
+# How it works:
+#   - Put one error message per line, under [common], [uncommon] or [rare].
+#   - Start a line with ! to show it as a yellow VETRO warning instead of a pink error.
+#   - Lines starting with # are notes and get ignored. Blank lines are fine.
+#   - To make an error more or less rare, move its line to a different group.
+#   - Type the message exactly how it should appear on the card.
+#
+# Each card gets 14 common, 7 uncommon and 3 rare.
+# Cards people already have never change. New errors show up on new cards
+# and in the "Share an error" list right away.
+
+[common]
+Layers failed to load.
+Could not retrieve feature info.
+Zoom Failed.
+Internal error
+Could not update feature(s)
+Could not retrieve projects and plans.
+Could not retrieve shared views.
+Could not perform analysis.
+Could not retrieve feature nesting info.
+Could not retrieve material.
+Could not retrieve hardware.
+Could not fetch assemblies.
+Too many features selected (52,318). Make a selection of fewer than 50000 features
+Offsetting will only appear at zoom levels 17 and greater. Zoom in closer to see line offsetting.
+Not enough memory to open this page
+This page isn't responding
+Performance issue detected — high CPU usage from background tabs
+VETRO stuck indefinitely on its loading screen
+Error updating point assignments.
+
+[uncommon]
+Selected feature in url does not exist or you don't have permission
+Error downloading file, try downloading from the reports activity page.
+Could not retrieve organization info.
+Could not set plan phase.
+The report "Bill of Materials" could not be completed
+Could not load associations between plans and layers.
+Could not retrieve potential children info.
+Could not rename plan.
+Could not retrieve user info.
+Could not retrieve report activity.
+Failed to load Circuits
+'/properties' should have required property 'Length'
+
+[rare]
+Something went wrong generating the raw data export. canceling statement due to conflict with recovery
+Could not delete plan.
+Could not retrieve organization settings.
+Could not retrieve organization basemaps.
+Equipment Types cannot be updated
+An error has occurred loading BIP Programs. Please contact support if this problem persists.
+An error has occurred loading plan phases. Please contact support if this issue persists.
+User is locked for 1 hour due to too many failed login attempts. You may unlock your account by resetting your password.
+! The update may have finished, but confirmation was not received. The table has been refreshed.
